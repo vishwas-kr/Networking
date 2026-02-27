@@ -11,9 +11,28 @@ struct CoinService {
     
     private let urlString = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&names=Bitcoin&symbols=btc&category=layer-1&price_change_percentage=1h"
     
+    //MARK: Async/Await approach much cleaner
+    
+    func fetchCoins() async throws -> [Coin] {
+        
+        guard let url = URL(string : urlString) else { return [] }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let coins = try JSONDecoder().decode([Coin].self, from: data)
+            return coins
+        } catch {
+            print(error.localizedDescription)
+            return []
+        }
+    }
+}
+
+extension CoinService {
+    
     //MARK: With Completion Handlers
     
-    func fetchCoins(completion: @escaping(Result<[Coin], CoinApiError>) -> Void) {
+    func fetchCoinsWithResult(completion: @escaping(Result<[Coin], CoinApiError>) -> Void) {
         guard let url = URL(string:urlString) else {return}
         
         URLSession.shared.dataTask(with: url) {data, response, error in
@@ -48,27 +67,27 @@ struct CoinService {
     }
     
     
+    func fetchCoinsWithCompletion(completion: @escaping([Coin]?, Error?) -> Void) {
+        guard let url = URL(string:urlString) else {return}
+        
+        URLSession.shared.dataTask(with: url) {data, response, error in
+            
+            if let error = error {
+                completion(nil, error)
+                return
+            }
+            guard let data = data else { return }
+            
+            do {
+                let coins = try JSONDecoder().decode([Coin].self,from: data)
+                completion(coins, nil)
+            } catch {
+                print(error)
+                completion(nil, error)
+            }
+        }.resume()
+    }
     
-    //    func fetchCoins(completion: @escaping([Coin]?, Error?) -> Void) {
-    //        guard let url = URL(string:urlString) else {return}
-    //
-    //        URLSession.shared.dataTask(with: url) {data, response, error in
-    //
-    //            if let error = error {
-    //                completion(nil, error)
-    //                return
-    //            }
-    //            guard let data = data else { return }
-    //
-    //            do {
-    //                let coins = try JSONDecoder().decode([Coin].self,from: data)
-    //                completion(coins, nil)
-    //            } catch {
-    //                print(error)
-    //                completion(nil, error)
-    //            }
-    //        }.resume()
-    //    }
     
     
     func fetchPrice(coin:String, completion: @escaping(Double)->Void) {
